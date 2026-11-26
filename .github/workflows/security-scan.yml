@@ -1,0 +1,28 @@
+name: security-scan
+
+# Runs the shared multi-model security pipeline from eovidiu/security-pipeline.
+# Needs the OPENROUTER_API_KEY repository secret.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full runs every stage; chain runs only the stages listed below"
+        type: choice
+        options: [full, chain]
+        default: full
+      chain:
+        description: "Comma-separated stages for mode=chain (no spaces)"
+        type: string
+        default: sast,recon,hunt,verify
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  security-validation:
+    uses: eovidiu/security-pipeline/.github/workflows/security-validation.yml@main
+    with:
+      mode: ${{ inputs.mode }}
+      chain: ${{ inputs.chain }}
+    secrets: inherit
