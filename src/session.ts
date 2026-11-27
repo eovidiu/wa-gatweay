@@ -1,3 +1,4 @@
+import { safeLinkPreview } from "./linkPreview.js";
 import makeWASocket, {
     decryptPollVote,
     downloadMediaMessage,
@@ -1455,8 +1456,8 @@ export class Session {
         const sent = await sock.sendMessage(
             jid,
             mentionedJid.length
-                ? { text: body, mentions: mentionedJid, linkPreview: null }
-                : { text: body, linkPreview: null },
+                ? { text: body, mentions: mentionedJid, linkPreview: await safeLinkPreview(body) }
+                : { text: body, linkPreview: await safeLinkPreview(body) },
             await this.quoteOptions(replyTo)
         );
         this.lastSentAt = new Date();
@@ -2394,7 +2395,7 @@ export class Session {
         const key = await this.recallKey(messageId);
         if (!key) throw new Error(`unknown message id: ${messageId}`);
         if (!key.fromMe) throw new Error("only your own messages can be edited");
-        await sock.sendMessage(key.remoteJid, { text, edit: key as any });
+        await sock.sendMessage(key.remoteJid, { text, edit: key as any, linkPreview: await safeLinkPreview(text) });
         this.log.info({ id: messageId }, "message edited");
     }
 
@@ -2501,26 +2502,18 @@ export class Session {
 }
 
 /**
- * What Baileys gets for a media send: bytes as they are, an http(s) URL for it
- * to fetch, or decoded base64.
+ * What Baileys gets for a media send: bytes as they are, the bytes behind an
+ * https URL (fetched here through ssrf.ts, never by Baileys), or decoded base64.
  *
- * Never a bare `{ url }` for anything but http(s): Baileys reads any other
- * `url` as a *local file path*, so passing a caller's string through would let
- * a client send this container's files. A link that isn't http(s) is decoded as
- * base64 instead, which at worst produces a broken image.
+ * Never a bare `{ url }`: Baileys reads a non-http(s) `url` as a *local file
+ * path*, and fetches an http(s) one without checking where it resolves. A link
+ * that isn't http(s) is decoded as base64 instead, which at worst produces a
+ * broken image.
  */
 export async function resolveMediaInput(media: string | Buffer): Promise<Buffer> {
     if (Buffer.isBuffer(media)) return media;
     if (media.startsWith("http://") || media.startsWith("https://")) {
         return fetchSafeMedia(media);
-    }
-    return Buffer.from(media.startsWith("data:") ? media.split(",")[1] ?? "" : media, "base64");
-}
-
-export function toMediaInput(media: string | Buffer): Buffer | { url: string } {
-    if (Buffer.isBuffer(media)) return media;
-    if (media.startsWith("http://") || media.startsWith("https://")) {
-        throw new Error("Unvalidated media URLs are not allowed; use resolveMediaInput()");
     }
     return Buffer.from(media.startsWith("data:") ? media.split(",")[1] ?? "" : media, "base64");
 }

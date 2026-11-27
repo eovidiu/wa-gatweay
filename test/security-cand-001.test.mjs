@@ -4,7 +4,7 @@ import http from "node:http";
 
 process.env.WA_MONGO_URL ||= "mongodb://127.0.0.1:1/unused";
 
-const { Session, toMediaInput } = await import("../dist/session.js");
+const { Session } = await import("../dist/session.js");
 const { isBlockedIp, validateMediaUrl } = await import("../dist/ssrf.js");
 
 function makeFakeSession() {
@@ -82,13 +82,6 @@ test("CAND-001: sendCloud rejects loopback, metadata, and private media URLs wit
     } finally {
         srv.close();
     }
-});
-
-test("CAND-001: toMediaInput does not return raw { url } for unvalidated HTTP(S) URLs", () => {
-    assert.throws(
-        () => toMediaInput("http://127.0.0.1:8080/secret.png"),
-        /https|blocked|url|async|not allowed/i
-    );
 });
 
 test("CAND-001: isBlockedIp and validateMediaUrl block private IPv4, IPv6, IPv4-mapped, CGNAT, ULA, and DNS-resolved private IPs", async () => {

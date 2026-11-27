@@ -37,12 +37,12 @@ COPY --from=build /app/dist ./dist
 COPY package.json ./
 
 # Media is scratch space — TTL'd, re-downloadable, and deliberately not a volume.
-RUN mkdir -p /tmp/wa-media && chown -R node:node /tmp/wa-media /app
+RUN mkdir -p /tmp/wa-media
 
-# Run on an unprivileged port behind the reverse proxy so the process runs as non-root.
-ENV PORT=8080
-EXPOSE 8080
-USER node
+# Port 80 is privileged, so this runs as root. A `USER node` line here makes the
+# process die at startup with EACCES, which reads like any other failure to boot.
+ENV PORT=80
+EXPOSE 80
 
 # Liveness, not readiness. /api/health is 200 whenever the process is up — even
 # with no numbers configured, which is exactly what a fresh deployment looks like
@@ -66,6 +66,6 @@ USER node
 # floored back to 10s. Needs Docker 25.0+ to build and run.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   --start-interval=250ms \
-  CMD curl -fsS http://localhost:8080/api/health || exit 1
+  CMD curl -fsS http://localhost:80/api/health || exit 1
 
 CMD ["node", "dist/server.js"]

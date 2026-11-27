@@ -158,10 +158,26 @@ export async function validateMediaUrl(
     return { url, addresses };
 }
 
-export async function fetchSafeMedia(
-    rawUrl: string,
-    opts: { maxBytes?: number; timeoutMs?: number; maxRedirects?: number; lookup?: LookupFn } = {}
-): Promise<Buffer> {
+export interface SafeFetchOptions {
+    maxBytes?: number;
+    timeoutMs?: number;
+    maxRedirects?: number;
+    lookup?: LookupFn;
+}
+
+export interface SafeFetchResponse {
+    /** The URL that answered, after redirects. */
+    url: string;
+    contentType: string;
+    body: Buffer;
+}
+
+export async function fetchSafeMedia(rawUrl: string, opts: SafeFetchOptions = {}): Promise<Buffer> {
+    return (await fetchSafe(rawUrl, opts)).body;
+}
+
+/** GET over https with every hop's address checked and pinned (see validateMediaUrl). */
+export async function fetchSafe(rawUrl: string, opts: SafeFetchOptions = {}): Promise<SafeFetchResponse> {
     const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const maxRedirects = opts.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
@@ -171,7 +187,7 @@ export async function fetchSafeMedia(
         const { url, addresses } = await validateMediaUrl(currentUrl, opts.lookup);
         const chosen = addresses[0];
 
-        const result = await new Promise<{ status: number; location?: string; body?: Buffer }>((resolve, reject) => {
+        const result = await new Promise<{ status: number; location?: string; contentType?: string; body?: Buffer }>((resolve, reject) => {
             const req = https.request(
                 url,
                 {
@@ -208,7 +224,7 @@ export async function fetchSafeMedia(
                         }
                         chunks.push(chunk);
                     });
-                    res.on("end", () => resolve({ status, body: Buffer.concat(chunks) }));
+                    res.on("end", () => resolve({ status, contentType: res.headers["content-type"], body: Buffer.concat(chunks) }));
                     res.on("error", reject);
                 }
             );
@@ -223,7 +239,7 @@ export async function fetchSafeMedia(
             currentUrl = new URL(result.location, url).toString();
             continue;
         }
-        return result.body ?? Buffer.alloc(0);
+        return { url: url.toString(), contentType: result.contentType ?? "", body: result.body ?? Buffer.alloc(0) };
     }
 
     throw new CloudRequestError("(#100) Too many redirects fetching media URL", 100);
