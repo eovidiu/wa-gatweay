@@ -1,3 +1,9 @@
+/**
+ * Global JSON body parser options. `inflate: false` rejects compressed request
+ * bodies instead of invoking body-parser's zlib decompression (CVE-2026-111181).
+ */
+export const JSON_BODY_OPTIONS = { limit: "25mb", inflate: false } as const;
+
 function required(name: string): string {
     const v = process.env[name];
     if (!v) throw new Error(`Missing required env var ${name}`);

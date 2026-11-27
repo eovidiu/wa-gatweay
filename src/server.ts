@@ -1,5 +1,5 @@
 import express from "express";
-import { API_PREFIX, config } from "./config.js";
+import { API_PREFIX, JSON_BODY_OPTIONS, config } from "./config.js";
 import { captureConsole, logger } from "./log.js";
 import { connectStores } from "./store.js";
 import { MediaStore } from "./media.js";
@@ -29,7 +29,7 @@ async function main() {
     const app = express();
     // Images arrive as base64 data URIs from the bots' image generation, which
     // blows well past Express's 100kb default.
-    app.use(express.json({ limit: "25mb" }));
+    app.use(express.json(JSON_BODY_OPTIONS));
     app.disable("x-powered-by");
     // Pironman terminates TLS and proxies to this container, so without this
     // every request appears to come from the proxy — and the management API's

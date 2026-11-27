@@ -18,6 +18,7 @@ import { scopedId, type ChatDoc, type ContactDoc, type Stores } from "./store.js
 import { describeMessage, isConversationMessage, matchesQuery, type HistoryAnchor } from "./chatlog.js";
 import { useMongoAuthState } from "./authState.js";
 import { MediaStore } from "./media.js";
+import { fetchSafeMedia } from "./ssrf.js";
 import { WebhookSender } from "./webhook.js";
 import {
     classify,
@@ -1427,7 +1428,7 @@ export class Session {
         if (k.type === "location") {
             content = { location: { degreesLatitude: k.latitude, degreesLongitude: k.longitude, name: k.name, address: k.address } };
         } else {
-            const media = toMediaInput(k.media);
+            const media = await resolveMediaInput(k.media);
             if (k.type === "audio") content = { audio: media, mimetype: (k as any).mimetype || "audio/mp4" };
             else if (k.type === "video") content = { video: media, caption: k.caption, ...((k as any).mimetype ? { mimetype: (k as any).mimetype } : {}) };
             else if (k.type === "sticker") content = { sticker: media };
@@ -1453,7 +1454,9 @@ export class Session {
         const mentionedJid = await this.mentionJids(mentions);
         const sent = await sock.sendMessage(
             jid,
-            mentionedJid.length ? { text: body, mentions: mentionedJid } : { text: body },
+            mentionedJid.length
+                ? { text: body, mentions: mentionedJid, linkPreview: null }
+                : { text: body, linkPreview: null },
             await this.quoteOptions(replyTo)
         );
         this.lastSentAt = new Date();
@@ -1527,7 +1530,7 @@ export class Session {
 
         // Callers send a data: URI, an http(s) URL, or raw base64 — all three are
         // common enough in the wild that rejecting any of them is a papercut.
-        const image = toMediaInput(media);
+        const image = await resolveMediaInput(media);
 
         const sent = await sock.sendMessage(jid, { image, caption: caption || undefined } as any, await this.quoteOptions(replyTo));
         if (sent) await this.rememberKey(sent);
@@ -2506,9 +2509,19 @@ export class Session {
  * a client send this container's files. A link that isn't http(s) is decoded as
  * base64 instead, which at worst produces a broken image.
  */
+export async function resolveMediaInput(media: string | Buffer): Promise<Buffer> {
+    if (Buffer.isBuffer(media)) return media;
+    if (media.startsWith("http://") || media.startsWith("https://")) {
+        return fetchSafeMedia(media);
+    }
+    return Buffer.from(media.startsWith("data:") ? media.split(",")[1] ?? "" : media, "base64");
+}
+
 export function toMediaInput(media: string | Buffer): Buffer | { url: string } {
     if (Buffer.isBuffer(media)) return media;
-    if (media.startsWith("http://") || media.startsWith("https://")) return { url: media };
+    if (media.startsWith("http://") || media.startsWith("https://")) {
+        throw new Error("Unvalidated media URLs are not allowed; use resolveMediaInput()");
+    }
     return Buffer.from(media.startsWith("data:") ? media.split(",")[1] ?? "" : media, "base64");
 }
 

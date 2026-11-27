@@ -1,4 +1,10 @@
 import sharp from "sharp";
+import { sniffMime } from "./sniff.js";
+
+// Block vulnerable native loaders (libheif / librsvg) before any untrusted image bytes reach libvips.
+sharp.block({ operation: ["VipsForeignLoadHeif", "VipsForeignLoadSvg"] });
+
+const SAFE_RASTER_MIMES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 /**
  * Claude refuses an image over 5 MB and downsamples anything past ~1568 px on
@@ -9,6 +15,10 @@ export const MODEL_IMAGE_MAX_BYTES = 3_500_000;
 export const MODEL_IMAGE_MAX_EDGE = 1568;
 
 export async function fitForModel(data: Buffer, mime: string): Promise<{ data: Buffer; mime: string; resized: boolean }> {
+    const sniffed = sniffMime(data.subarray(0, 64));
+    if (!sniffed || !SAFE_RASTER_MIMES.has(sniffed)) {
+        return { data, mime, resized: false };
+    }
     const meta = await sharp(data).metadata().catch(() => null);
     const edge = Math.max(meta?.width || 0, meta?.height || 0);
     if (data.length <= MODEL_IMAGE_MAX_BYTES && edge <= MODEL_IMAGE_MAX_EDGE) return { data, mime, resized: false };
