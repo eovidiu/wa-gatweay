@@ -16,16 +16,16 @@ on:
         default: sast,recon,hunt,verify
       recon_model:
         type: string
-        default: openrouter/anthropic/claude-haiku-4.5
+        default: openrouter/google/gemini-4-hydrogen
       hunt_model:
         type: string
-        default: openrouter/anthropic/claude-sonnet-4.6
+        default: openrouter/google/gemini-4-hydrogen
       verify_model:
         type: string
-        default: openrouter/anthropic/claude-opus-4.6
+        default: openrouter/google/gemini-4-hydrogen
       remediate_model:
         type: string
-        default: openrouter/anthropic/claude-sonnet-4.6
+        default: openrouter/google/gemini-4-hydrogen
 
 permissions:
   contents: read
