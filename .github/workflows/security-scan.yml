@@ -14,6 +14,18 @@ on:
         description: "Comma-separated stages for mode=chain (no spaces)"
         type: string
         default: sast,recon,hunt,verify
+      recon_model:
+        type: string
+        default: openrouter/google/gemini-4-hydrogen
+      hunt_model:
+        type: string
+        default: openrouter/google/gemini-4-hydrogen
+      verify_model:
+        type: string
+        default: openrouter/google/gemini-4-hydrogen
+      remediate_model:
+        type: string
+        default: openrouter/google/gemini-4-hydrogen
 
 permissions:
   contents: read
@@ -25,4 +37,8 @@ jobs:
     with:
       mode: ${{ inputs.mode }}
       chain: ${{ inputs.chain }}
+      recon_model: ${{ inputs.recon_model }}
+      hunt_model: ${{ inputs.hunt_model }}
+      verify_model: ${{ inputs.verify_model }}
+      remediate_model: ${{ inputs.remediate_model }}
     secrets: inherit
