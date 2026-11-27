@@ -27,9 +27,14 @@ on:
         type: string
         default: openrouter/google/gemini-4-hydrogen
 
+# Upper bound for the called workflow. Its scanning and AI jobs only get contents/packages read;
+# the report job adds issues + security-events, and fix-pr adds contents + pull-requests write.
 permissions:
-  contents: read
+  contents: write
   packages: read
+  issues: write
+  pull-requests: write
+  security-events: write
 
 jobs:
   security-validation:
